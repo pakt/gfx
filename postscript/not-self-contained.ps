@@ -1,0 +1,444 @@
+%!PS-Adobe-2.0
+%%BoundingBox: 0 0 80 80
+
+/concatstrings % (a) (b) -> (ab)  
+{ exch dup length    
+ 2 index length add string    
+ dup dup 4 2 roll copy length
+ 4 -1 roll putinterval
+} bind def  
+
+/concatarrays {
+    1 index length 1 index length add array
+    dup 4 1 roll exch 2 index length exch
+    putinterval 1 index exch 0 exch putinterval
+} def
+
+
+% from ghostscript prfont.ps
+% Sort an array.  Code used by permission of the author, Aladdin Enterprises.
+/sort {			% <array> <lt-proc> sort <array>
+	% Heapsort (algorithm 5.2.3H, Knuth vol. 2, p. 146),
+	% modified for 0-origin indexing. */
+  10 dict begin
+  /LT exch def
+  /recs exch def
+  /N recs length def
+  N 1 gt {
+    /l N 2 idiv def
+    /r N 1 sub def {
+      l 0 gt {
+	/l l 1 sub def
+	/R recs l get def
+      } {
+	/R recs r get def
+	recs r recs 0 get put
+	/r r 1 sub def
+	r 0 eq { recs 0 R put exit } if
+      } ifelse
+      /j l def {
+	/i j def
+	/j j dup add 1 add def
+	j r lt {
+	  recs j get recs j 1 add get LT { /j j 1 add def } if
+	} if
+	j r gt { recs i R put exit } if
+	R recs j get LT not { recs i R put exit } if
+	recs i recs j get put
+      } loop
+    } loop
+  } if recs end
+} def
+
+% [x,y,z] [x,y,z] -> bool (P1.z < P2.z)
+/point_cmp_lt {
+    aload pop
+    /z2 exch def
+    pop pop
+    aload pop
+    /z1 exch def
+    pop pop
+    z1 z2 lt
+} def
+
+% [[x,y,z] [r,g,b]], [[x,y,z] [r,g,b]] -> bool (P1.z < P2.z)
+/point_xyz_rgb_cmp_lt {
+    aload pop
+    pop
+    /p2 exch def
+    aload pop
+    pop
+    /p1 exch def
+    p1 p2 point_cmp_lt
+} def
+
+% arr1 arr2 -> zip(arr1, arr2)
+% must be of equal len.
+/zip {
+    1 dict begin
+    /arr2 exch def
+    /arr1 exch def
+    /len arr1 length def
+    /i 0 def
+    [
+        len { 
+            /x arr1 i get def
+            /y arr2 i get def
+            [x y]
+            /i i 1 add def
+        } repeat
+    ]
+    end
+} def
+
+/w 800 def
+/h 600 def
+
+/curdir (d:\\_src\\ps-gfx\\) def
+curdir (ps3d.inc) concatstrings run
+curdir (cube.inc) concatstrings run
+curdir (epsetup.inc)  concatstrings run
+
+% lat, lon -> point on sphere (x,y,z)
+/P {
+    1 dict begin
+        /lon exch def
+        /lat exch def
+        [
+         lat cos lon cos mul
+         lat sin lon cos mul
+         lon sin 
+        ]
+    end
+} def
+
+% N -> sphere with Nx2N points
+% lat - szerokosc
+% lon - dlugosc (wysokosc)
+/gen_sphere_lat_lon {
+    1 dict begin
+        /N exch def
+        /step_lon 180 N 2 sub div def
+        /step_lat 360 N 2 mul div def
+        /lon -90 def
+        [   
+            [-90 0]	 
+            /lon lon step_lon add def                   
+            N 2 sub {
+                /lat 0 def
+                2 N mul {
+                    [lon lat]
+                    /lat lat step_lat add def
+                } repeat
+                /lon lon step_lon add def
+            } repeat     
+            [90 0]
+        ]
+    end
+} def
+
+/gen_sphere {
+    1 dict begin
+    /N exch def
+    [
+        N gen_sphere_lat_lon { 
+            aload pop P
+        } forall
+    ]
+    end
+} def
+
+% convert from parametric coords to euclidean space
+% R - big circle, r - small circle
+% u - short circle, t - long circle
+% u t R r -> [x y z]
+/tori_ut_to_xyz {
+    1 dict begin
+    /r exch def
+    /R exch def
+    /t exch def
+    /u exch def
+    /x R r u cos mul add t cos mul def
+    /y R r u cos mul add t sin mul def
+    /z r u sin mul def
+    [x y z]
+    end
+} def
+
+% N M R r
+% N - number of short circles around the hole
+% M - number of 'pixels' in short circle
+% R - big circle radius
+% r - small circle radius
+/gen_tori_ut {
+    1 dict begin
+    /r exch def
+    /R exch def
+    /M exch def
+    /N exch def
+    /step_big 360 N div def
+    /step_small 360 M div def
+    /big 0 def
+    [
+        N {
+            /small 0 def
+            M {
+                [small big R r] 
+                /small small step_small add def
+            } repeat
+            /big big step_big add def
+        } repeat
+    ]
+    end
+} def
+
+% N M R r
+/gen_fancy_path {
+    1 dict begin
+    /r exch def
+    /R exch def
+    /M exch def
+    /N exch def
+    /step_big 360 N div def
+    /step_small 360 M div def
+    /big 0 def
+    /small 0 def
+    [
+        N {
+            small big R r tori_ut_to_xyz 
+            /small small step_small add def
+            /big big step_big add def
+        } repeat
+    ]
+    end
+} def
+
+% N M R r
+/gen_tori {
+    1 dict begin
+        [
+        5 1 roll
+        gen_tori_ut {
+            aload pop tori_ut_to_xyz 
+        } forall 
+        ]
+    end
+} def
+
+% t -> x y
+/circle_t_to_xy {
+    /t exch def
+    t cos
+    t sin
+} def
+
+% x y -> [r, g, b]
+/circle_xy_to_rgb {
+    /y exch def
+    /x exch def
+    /x 0.5 x add def
+    /y 0.5 y add def % [-0.5, 0.5] -> [0,1]
+    /x x 2 mul def
+    /y y 2 mul def
+    /z x cos y sin add 2 div def 
+    [x y z]
+} def
+
+% arr -> arr of [r,g,b] colors
+/gen_colors {
+    1 dict begin
+    /points exch def
+    /len points length def
+    /step_t 360 len div def
+    /t 0 def
+    [
+        len {
+            t circle_t_to_xy circle_xy_to_rgb
+            /t t step_t add def
+        } repeat
+    ]
+    end
+} def
+
+% len [r,g,b] -> arr 
+/gen_solid_colors {
+    1 dict begin
+        /rgb exch def
+        /len exch def
+        [
+            len { rgb } repeat
+        ]
+    end
+} def
+
+%[x,y,z] [r,g,b] -> draws 1x1x1 cube centered at [x,y,z]
+/drawcube_rgb {
+    gsave3d
+    /color exch def
+    aload pop translate3d
+    0.05 0.05 0.05 scale3d
+    -0.5 -0.5 -0.5 translate3d
+
+    /E get-virtual-eye def
+    /light-source [-3 4 3 0] normalized def
+    /L light-source cim3d transform3d normalized def
+    
+    cube {
+        aload pop
+        /p exch def % p = array of vertices on the face
+        /f exch def % f = normal function
+        f E dot-product 0 ge {
+            newpath
+            % move to last point first
+            p p length 1 sub get aload pop moveto3d
+            p {
+                aload pop
+                lineto3d
+            } forall
+
+            gsave
+            /s L f dot-product 1 add 2 div def
+            color { s mul } forall setrgbcolor
+            fill
+            grestore
+            
+            %stroke
+        } if
+    } forall
+
+    grestore3d
+} def
+
+/drawcube {
+    [1 0 0] drawcube_rgb
+} def
+
+/homo { aload pop 1 [5 1 roll]} def
+
+/dehomo { 
+	aload pop
+	/w exch def
+	3 { w div 3 1 roll } repeat
+	3 array astore
+} def
+
+
+
+
+% arr T -> arr
+/transform_points {
+    1 dict begin
+    /T exch def
+    /points exch def
+
+    points {
+        homo T transform3d dehomo
+    } forall 
+    points length array 
+    astore 
+
+    end
+} def
+
+%  arr scale -> arr
+/scale_sphere {
+    /scale exch def
+    [
+        exch {
+            {
+                scale mul
+            } forall
+            3 array astore
+        } forall
+    ]
+} def
+% ------------------------------------------------
+
+[0 0 9 1] set-display
+
+page-begin
+
+gsave3d
+    [1 1 1] 45 rotate3d
+    /T1 ctm3d def
+    /T2 ctm3d def
+    -2 0 0 translate3d
+    [1 0 0] 90 rotate3d
+    /tori2_T ctm3d def
+    [0 1 0] 90 rotate3d
+    0 -2 0 translate3d
+    /tori3_T ctm3d def
+grestore3d
+
+/null_T ctm3d def
+
+/N 20 def
+/K 16 def
+/step 360 K div def
+/spheres [] def
+/t 0 def % 0..2Pi
+/clr 0 def
+/delta 4 K div def
+
+K {
+    /sphere N gen_sphere def
+    /scale t 1.5 mul sin abs 2.5 div def
+    /sphere sphere scale scale_sphere def
+
+    gsave3d
+        [1 1 1] 45 rotate3d
+        -2 0 0 translate3d
+        [1 0 0] 90 rotate3d
+        t circle_t_to_xy 
+        2 {2 mul exch} repeat
+        0 translate3d
+        /T ctm3d def
+    grestore3d
+
+    /rgb [0.28 0.74 0.90] def
+
+    /t t step add def
+
+    /sphere sphere T transform_points def
+    /sphere_colors sphere length rgb gen_solid_colors def
+    /sphere sphere sphere_colors zip def
+    /spheres spheres sphere concatarrays def
+} repeat
+
+% sort centers by Z coordinate
+%/sphere sphere {point_cmp_lt} sort def
+
+/tori 128 32 1 0.5 gen_tori def
+/tori tori T2 transform_points def
+/tori_colors tori length [0.5 0.5 0.7] gen_solid_colors def
+/tori tori tori_colors zip def
+
+%/tori2 128 16 2 0.5 gen_tori def
+%big torus path crossing doughnut
+/tori2 2048 128 2 0.5 gen_fancy_path def
+/tori2 tori2 tori2_T transform_points def
+/tori2_colors tori2 gen_colors def
+/tori2 tori2 tori2_colors zip def
+
+/tori_path 1024 256 2 0.5 gen_fancy_path def
+/tori_path tori_path T1 transform_points def
+/tp_colors tori_path gen_colors def
+/tori_path tori_path tp_colors zip def
+
+/sphere [] def
+/scene spheres tori_path concatarrays def
+/scene scene tori concatarrays def
+/scene scene tori2 concatarrays def
+
+/scene scene {point_xyz_rgb_cmp_lt} sort def
+
+scene {
+    aload pop
+    /rgb exch def
+    /point exch def
+    point rgb drawcube_rgb
+} forall
+
+grestore 
+showpage
+

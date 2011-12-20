@@ -1,0 +1,10 @@
+3D programming in PostScript. 
+
+cube.inc, epsetup.inc and ps3d.inc are from:
+http://www.math.ubc.ca/~cass/graphics/manual/
+
+self-contained.ps will run on GhostView on windows. GS on linux will fail to
+render anything x_x
+
+This thing first generates all objects and their colors, then sorts all 
+"pixels" by Z and draws them.
